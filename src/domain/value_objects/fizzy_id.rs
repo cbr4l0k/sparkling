@@ -14,7 +14,7 @@ impl sqlx::Type<sqlx::MySql> for FizzyId {
     }
 }
 
-impl<'q> sqlx::Encode<'q, sqlx::MySql> for FizzyId {
+impl sqlx::Encode<'_, sqlx::MySql> for FizzyId {
     fn encode_by_ref(
         &self,
         buf: &mut Vec<u8>,
