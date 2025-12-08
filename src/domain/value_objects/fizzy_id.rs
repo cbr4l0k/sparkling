@@ -1,3 +1,4 @@
+use sqlx::decode;
 use std::fmt;
 use uuid::Uuid;
 
@@ -5,6 +6,57 @@ use uuid::Uuid;
 /// This wrapper provides type safety and generation functionality.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct FizzyId(String);
+
+/// SQLX implementations so that FizzyId maps to the same SQL type as de default ones in the DB
+impl sqlx::Type<sqlx::MySql> for FizzyId {
+    fn type_info() -> <sqlx::MySql as sqlx::Database>::TypeInfo {
+        <[u8] as sqlx::Type<sqlx::MySql>>::type_info()
+    }
+}
+
+impl<'q> sqlx::Encode<'q, sqlx::MySql> for FizzyId {
+    fn encode_by_ref(
+        &self,
+        buf: &mut Vec<u8>,
+    ) -> Result<sqlx::encode::IsNull, sqlx::error::BoxDynError> {
+        // Convert Base36 String -> u128
+        let num = Self::from_base36(&self.0)?;
+
+        // Convert u128 -> Bytes (Big endian)
+        let bytes = num.to_be_bytes();
+
+        // Write bytes to SQLx buffer
+        buf.extend_from_slice(&bytes);
+
+        Ok(sqlx::encode::IsNull::No)
+    }
+}
+
+impl<'r> sqlx::Decode<'r, sqlx::MySql> for FizzyId {
+    fn decode(
+        value: <sqlx::MySql as sqlx::Database>::ValueRef<'r>,
+    ) -> Result<Self, sqlx::error::BoxDynError> {
+        // This expects bytes from the database (blob(16))
+        // as seen by running `PRAGMA table_info(comments);`
+        let bytes = <&[u8] as sqlx::Decode<sqlx::MySql>>::decode(value)?;
+        if bytes.len() != 16 {
+            return Err(format!(
+                "Invalid FizzyId length in DB: Expected 16 bytes, got {}",
+                bytes.len()
+            )
+            .into());
+        }
+
+        // Convert bytes -> u128
+        let mut arr = [0u8; 16];
+        arr.copy_from_slice(bytes);
+        let num = u128::from_be_bytes(arr);
+
+        // u128 -> Base36 String
+        let base36 = Self::to_base36(num);
+        Ok(Self(format!("{:0>25}", base36)))
+    }
+}
 
 impl FizzyId {
     /// Create a FizzyId from an existing string (e.g., from database)
@@ -47,6 +99,28 @@ impl FizzyId {
 
         result.reverse();
         String::from_utf8(result).unwrap()
+    }
+
+    /// Convert base 36 string back to u128 (requiered by sqlx::Encode)
+    fn from_base36(s: &str) -> Result<u128, String> {
+        let mut result: u128 = 0;
+
+        for c in s.chars() {
+            let val = match c {
+                '0'..='9' => c as u128 - '0' as u128,
+                'a'..='z' => c as u128 - 'a' as u128 + 10,
+                'A'..='Z' => c as u128 - 'A' as u128 + 10,
+                _ => return Err(format!("Invalid char: '{}' in Base36 string", c)),
+            };
+            result = result
+                .checked_mul(36)
+                .ok_or_else(|| "Base36 number to large for u128".to_string())?;
+
+            result = result
+                .checked_add(val)
+                .ok_or_else(|| "Base36 number to large for u128".to_string())?;
+        }
+        Ok(result)
     }
 }
 

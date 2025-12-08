@@ -1,5 +1,5 @@
-use chrono::{DateTime, Utc};
 use crate::domain::value_objects::FizzyId;
+use chrono::{DateTime, Utc};
 
 /// Comment on a card
 #[derive(Debug, Clone)]
