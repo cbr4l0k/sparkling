@@ -1,3 +1,8 @@
+use crate::application::use_cases::{
+    GetCardDetailsUseCase, ListBoardCardsUseCase, ListBoardsUseCase, ListMyCardsUseCase,
+};
+use crate::domain::ports::{BoardRepository, CardRepository};
+use crate::domain::value_objects::FizzyId;
 use crate::infrastructure::config::AppConfig;
 use std::sync::Arc;
 use teloxide::prelude::*;
@@ -7,18 +12,49 @@ use teloxide::utils::command::BotCommands;
 #[derive(Clone)]
 pub struct BotState {
     pub config: Arc<AppConfig>,
+    // Use cases for Phase 2
+    pub list_my_cards: Arc<ListMyCardsUseCase>,
+    pub get_card_details: Arc<GetCardDetailsUseCase>,
+    pub list_boards: Arc<ListBoardsUseCase>,
+    pub list_board_cards: Arc<ListBoardCardsUseCase>,
 }
 
 impl BotState {
-    pub fn new(config: AppConfig) -> Self {
+    pub fn new(
+        config: AppConfig,
+        card_repository: Arc<dyn CardRepository>,
+        board_repository: Arc<dyn BoardRepository>,
+    ) -> Self {
         Self {
             config: Arc::new(config),
+            list_my_cards: Arc::new(ListMyCardsUseCase::new(card_repository.clone())),
+            get_card_details: Arc::new(GetCardDetailsUseCase::new(card_repository.clone())),
+            list_boards: Arc::new(ListBoardsUseCase::new(board_repository.clone())),
+            list_board_cards: Arc::new(ListBoardCardsUseCase::new(
+                card_repository,
+                board_repository,
+            )),
         }
     }
 
     /// Check if a Telegram user is authorized to use the bot
     pub fn is_authorized(&self, user_id: i64) -> bool {
         self.config.telegram.is_user_allowed(user_id)
+    }
+
+    /// Get the configured account ID
+    pub fn account_id(&self) -> FizzyId {
+        FizzyId::new(self.config.fizzy.account_id.clone())
+    }
+
+    /// Get the configured user ID (for single-user mode)
+    pub fn user_id(&self) -> FizzyId {
+        FizzyId::new(self.config.fizzy.user_id.clone())
+    }
+
+    /// Get the base URL for Fizzy web UI
+    pub fn base_url(&self) -> Option<&str> {
+        self.config.fizzy.base_url.as_deref()
     }
 }
 

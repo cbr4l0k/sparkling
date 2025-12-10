@@ -15,11 +15,7 @@ pub struct TelegramConfig {
 
 #[derive(Debug, Clone)]
 pub struct DatabaseConfig {
-    pub host: String,
-    pub port: u16,
-    pub username: String,
-    pub password: String,
-    pub database: String,
+    pub path: String,
     pub max_connections: u32,
 }
 
@@ -67,17 +63,8 @@ impl TelegramConfig {
 impl DatabaseConfig {
     fn from_env() -> Result<Self, String> {
         Ok(Self {
-            host: env::var("DATABASE_HOST").unwrap_or_else(|_| "localhost".to_string()),
-            port: env::var("DATABASE_PORT")
-                .unwrap_or_else(|_| "3306".to_string())
-                .parse()
-                .map_err(|_| "Invalid DATABASE_PORT")?,
-            username: env::var("DATABASE_USERNAME")
-                .map_err(|_| "DATABASE_USERNAME not set")?,
-            password: env::var("DATABASE_PASSWORD")
-                .map_err(|_| "DATABASE_PASSWORD not set")?,
-            database: env::var("DATABASE_NAME")
-                .map_err(|_| "DATABASE_NAME not set")?,
+            path: env::var("DATABASE_PATH")
+                .map_err(|_| "DATABASE_PATH not set")?,
             max_connections: env::var("DATABASE_MAX_CONNECTIONS")
                 .unwrap_or_else(|_| "5".to_string())
                 .parse()
@@ -86,10 +73,7 @@ impl DatabaseConfig {
     }
 
     pub fn connection_string(&self) -> String {
-        format!(
-            "mysql://{}:{}@{}:{}/{}",
-            self.username, self.password, self.host, self.port, self.database
-        )
+        format!("sqlite://{}?mode=ro", self.path)
     }
 }
 

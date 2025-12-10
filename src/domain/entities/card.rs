@@ -1,5 +1,5 @@
+use crate::domain::value_objects::{CardStatus, FizzyId};
 use chrono::{DateTime, NaiveDate, Utc};
-use crate::domain::value_objects::{FizzyId, CardStatus};
 
 /// Main work item (task/issue) in Fizzy
 #[derive(Debug, Clone)]
@@ -42,7 +42,12 @@ impl Card {
     /// Generate a URL to view the card in Fizzy web UI
     pub fn web_url(&self, base_url: Option<&str>) -> Option<String> {
         base_url.map(|url| {
-            format!("{}/{}/cards/{}", url.trim_end_matches('/'), self.account_id, self.number)
+            format!(
+                "{}/{}/cards/{}",
+                url.trim_end_matches('/'),
+                self.account_id,
+                self.number
+            )
         })
     }
 }

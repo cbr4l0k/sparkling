@@ -1,10 +1,20 @@
+#![allow(unused_variables)]
+#![allow(dead_code)]
+#![allow(unused_imports)]
 use std::sync::Arc;
 use teloxide::prelude::*;
 use teloxide::utils::command::BotCommands;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
+use fizzy_bot::application::use_cases::{
+    GetCardDetailsInput, ListBoardCardsInput, ListBoardsInput, ListMyCardsInput,
+};
 use fizzy_bot::infrastructure::config::AppConfig;
+use fizzy_bot::infrastructure::persistence::{
+    create_pool, SqliteBoardRepository, SqliteCardRepository,
+};
 use fizzy_bot::infrastructure::telegram::bot::{create_bot, BotState, Command};
+use fizzy_bot::infrastructure::telegram::formatters::{BoardFormatter, CardFormatter};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -26,8 +36,20 @@ async fn main() -> anyhow::Result<()> {
     let config = AppConfig::from_env().map_err(|e| anyhow::anyhow!("Config error: {}", e))?;
     tracing::info!("Configuration loaded");
 
-    // Create bot state
-    let state = Arc::new(BotState::new(config.clone()));
+    // Create database pool
+    let pool = create_pool(&config).await?;
+    tracing::info!("Database pool created");
+
+    // Create repositories
+    let card_repository = Arc::new(SqliteCardRepository::new(pool.clone()));
+    let board_repository = Arc::new(SqliteBoardRepository::new(pool.clone()));
+
+    // Create bot state with use cases
+    let state = Arc::new(BotState::new(
+        config.clone(),
+        card_repository,
+        board_repository,
+    ));
 
     // Create bot
     let bot = create_bot(&config);
@@ -91,39 +113,116 @@ Type /help for all commands."#;
         }
 
         Command::Me | Command::MyCards => {
-            // TODO: Implement with use case in Phase 2
-            bot.send_message(
-                msg.chat.id,
-                "Your cards will be shown here (coming in Phase 2!)",
-            )
-            .await?;
+            let input = ListMyCardsInput {
+                account_id: state.account_id(),
+                user_id: state.user_id(),
+                include_closed: false,
+                limit: Some(20),
+            };
+
+            match state.list_my_cards.execute(input).await {
+                Ok(output) => {
+                    let response = if output.cards.is_empty() {
+                        "📋 You have no assigned cards.".to_string()
+                    } else {
+                        format!(
+                            "📋 <b>Your Cards</b> ({})\n\n{}",
+                            output.cards.len(),
+                            CardFormatter::format_card_list(&output.cards)
+                        )
+                    };
+                    bot.send_message(msg.chat.id, response)
+                        .parse_mode(teloxide::types::ParseMode::Html)
+                        .await?;
+                }
+                Err(e) => {
+                    tracing::error!("Error listing cards: {:?}", e);
+                    bot.send_message(msg.chat.id, format!("Error: {}", e))
+                        .await?;
+                }
+            }
         }
 
         Command::Boards => {
-            // TODO: Implement with use case in Phase 2
-            bot.send_message(
-                msg.chat.id,
-                "Board list will be shown here (coming in Phase 2!)",
-            )
-            .await?;
+            let input = ListBoardsInput {
+                account_id: state.account_id(),
+                user_id: state.user_id(),
+            };
+
+            match state.list_boards.execute(input).await {
+                Ok(output) => {
+                    let response = if output.boards.is_empty() {
+                        "📁 No boards found.".to_string()
+                    } else {
+                        format!(
+                            "📁 <b>Your Boards</b> ({})\n\n{}",
+                            output.boards.len(),
+                            BoardFormatter::format_board_list(&output.boards)
+                        )
+                    };
+                    bot.send_message(msg.chat.id, response)
+                        .parse_mode(teloxide::types::ParseMode::Html)
+                        .await?;
+                }
+                Err(e) => {
+                    tracing::error!("Error listing boards: {:?}", e);
+                    bot.send_message(msg.chat.id, format!("Error: {}", e))
+                        .await?;
+                }
+            }
         }
 
         Command::Board { name } => {
-            // TODO: Implement with use case in Phase 2
-            bot.send_message(
-                msg.chat.id,
-                format!("Cards in board '{}' (coming in Phase 2!)", name),
-            )
-            .await?;
+            let input = ListBoardCardsInput {
+                account_id: state.account_id(),
+                user_id: state.user_id(),
+                board_name: name.clone(),
+                limit: Some(20),
+            };
+
+            match state.list_board_cards.execute(input).await {
+                Ok(output) => {
+                    let response = if output.cards.is_empty() {
+                        format!("📁 <b>{}</b>\n\nNo active cards.", output.board_name)
+                    } else {
+                        format!(
+                            "📁 <b>{}</b> ({} cards)\n\n{}",
+                            output.board_name,
+                            output.cards.len(),
+                            CardFormatter::format_card_list(&output.cards)
+                        )
+                    };
+                    bot.send_message(msg.chat.id, response)
+                        .parse_mode(teloxide::types::ParseMode::Html)
+                        .await?;
+                }
+                Err(e) => {
+                    tracing::error!("Error listing board cards: {:?}", e);
+                    bot.send_message(msg.chat.id, format!("Error: {}", e))
+                        .await?;
+                }
+            }
         }
 
         Command::Card { number } => {
-            // TODO: Implement with use case in Phase 2
-            bot.send_message(
-                msg.chat.id,
-                format!("Card #{} details (coming in Phase 2!)", number),
-            )
-            .await?;
+            let input = GetCardDetailsInput {
+                account_id: state.account_id(),
+                card_number: number,
+            };
+
+            match state.get_card_details.execute(input).await {
+                Ok(card) => {
+                    let response = CardFormatter::format_card(&card, state.base_url());
+                    bot.send_message(msg.chat.id, response)
+                        .parse_mode(teloxide::types::ParseMode::Html)
+                        .await?;
+                }
+                Err(e) => {
+                    tracing::error!("Error getting card details: {:?}", e);
+                    bot.send_message(msg.chat.id, format!("Error: {}", e))
+                        .await?;
+                }
+            }
         }
 
         Command::Create { title } => {

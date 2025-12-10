@@ -1,21 +1,21 @@
 use async_trait::async_trait;
-use sqlx::MySqlPool;
+use sqlx::SqlitePool;
 use crate::domain::ports::{EventRepository, CreateEventInput};
 use crate::domain::value_objects::FizzyId;
 use crate::domain::errors::DomainError;
 
-pub struct MysqlEventRepository {
-    pool: MySqlPool,
+pub struct SqliteEventRepository {
+    pool: SqlitePool,
 }
 
-impl MysqlEventRepository {
-    pub fn new(pool: MySqlPool) -> Self {
+impl SqliteEventRepository {
+    pub fn new(pool: SqlitePool) -> Self {
         Self { pool }
     }
 }
 
 #[async_trait]
-impl EventRepository for MysqlEventRepository {
+impl EventRepository for SqliteEventRepository {
     async fn create_event(
         &self,
         _account_id: &FizzyId,

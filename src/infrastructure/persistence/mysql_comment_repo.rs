@@ -3,20 +3,20 @@ use crate::domain::errors::DomainError;
 use crate::domain::ports::CommentRepository;
 use crate::domain::value_objects::FizzyId;
 use async_trait::async_trait;
-use sqlx::{MySqlPool, Row};
+use sqlx::{SqlitePool, Row};
 
-pub struct MysqlCommentRepository {
-    pool: MySqlPool,
+pub struct SqliteCommentRepository {
+    pool: SqlitePool,
 }
 
-impl MysqlCommentRepository {
-    pub fn new(pool: MySqlPool) -> Self {
+impl SqliteCommentRepository {
+    pub fn new(pool: SqlitePool) -> Self {
         Self { pool }
     }
 }
 
 #[async_trait]
-impl CommentRepository for MysqlCommentRepository {
+impl CommentRepository for SqliteCommentRepository {
     async fn list_for_card(
         &self,
         account_id: &FizzyId,

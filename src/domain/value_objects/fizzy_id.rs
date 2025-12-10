@@ -1,4 +1,3 @@
-use sqlx::decode;
 use std::fmt;
 use uuid::Uuid;
 
@@ -8,37 +7,36 @@ use uuid::Uuid;
 pub struct FizzyId(String);
 
 /// SQLX implementations so that FizzyId maps to the same SQL type as de default ones in the DB
-impl sqlx::Type<sqlx::MySql> for FizzyId {
-    fn type_info() -> <sqlx::MySql as sqlx::Database>::TypeInfo {
-        <[u8] as sqlx::Type<sqlx::MySql>>::type_info()
+impl sqlx::Type<sqlx::Sqlite> for FizzyId {
+    fn type_info() -> <sqlx::Sqlite as sqlx::Database>::TypeInfo {
+        <Vec<u8> as sqlx::Type<sqlx::Sqlite>>::type_info()
     }
 }
 
-impl sqlx::Encode<'_, sqlx::MySql> for FizzyId {
+impl sqlx::Encode<'_, sqlx::Sqlite> for FizzyId {
     fn encode_by_ref(
         &self,
-        buf: &mut Vec<u8>,
+        buf: &mut Vec<sqlx::sqlite::SqliteArgumentValue<'_>>,
     ) -> Result<sqlx::encode::IsNull, sqlx::error::BoxDynError> {
         // Convert Base36 String -> u128
         let num = Self::from_base36(&self.0)?;
 
         // Convert u128 -> Bytes (Big endian)
-        let bytes = num.to_be_bytes();
+        let bytes = num.to_be_bytes().to_vec();
 
         // Write bytes to SQLx buffer
-        buf.extend_from_slice(&bytes);
+        buf.push(sqlx::sqlite::SqliteArgumentValue::Blob(std::borrow::Cow::Owned(bytes)));
 
         Ok(sqlx::encode::IsNull::No)
     }
 }
 
-impl<'r> sqlx::Decode<'r, sqlx::MySql> for FizzyId {
+impl<'r> sqlx::Decode<'r, sqlx::Sqlite> for FizzyId {
     fn decode(
-        value: <sqlx::MySql as sqlx::Database>::ValueRef<'r>,
+        value: <sqlx::Sqlite as sqlx::Database>::ValueRef<'r>,
     ) -> Result<Self, sqlx::error::BoxDynError> {
         // This expects bytes from the database (blob(16))
-        // as seen by running `PRAGMA table_info(comments);`
-        let bytes = <&[u8] as sqlx::Decode<sqlx::MySql>>::decode(value)?;
+        let bytes = <&[u8] as sqlx::Decode<sqlx::Sqlite>>::decode(value)?;
         if bytes.len() != 16 {
             return Err(format!(
                 "Invalid FizzyId length in DB: Expected 16 bytes, got {}",
@@ -59,8 +57,20 @@ impl<'r> sqlx::Decode<'r, sqlx::MySql> for FizzyId {
 }
 
 impl FizzyId {
-    /// Create a FizzyId from an existing string (e.g., from database)
+    /// Create a FizzyId from an existing string (e.g., from config or database)
+    /// Accepts both base36 format and UUID format (with dashes)
     pub fn new(id: String) -> Self {
+        // Check if it looks like a UUID (contains dashes)
+        if id.contains('-') {
+            // Parse as UUID and convert to base36
+            if let Ok(uuid) = Uuid::parse_str(&id) {
+                let bytes = uuid.as_bytes();
+                let num = u128::from_be_bytes(*bytes);
+                let base36 = Self::to_base36(num);
+                return Self(format!("{:0>25}", base36));
+            }
+        }
+        // Otherwise treat as base36
         Self(id)
     }
 
