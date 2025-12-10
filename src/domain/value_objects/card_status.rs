@@ -12,6 +12,7 @@ pub enum CardStatus {
     Triaged,
     Closed,
     NotNow,
+    Published,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -30,6 +31,7 @@ impl FromStr for CardStatus {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "drafted" => Ok(CardStatus::Drafted),
+            "published" => Ok(CardStatus::Published),
             "triaged" => Ok(CardStatus::Triaged),
             "closed" => Ok(CardStatus::Closed),
             "not_now" => Ok(CardStatus::NotNow),
@@ -46,12 +48,16 @@ impl CardStatus {
             CardStatus::Triaged => "triaged",
             CardStatus::Closed => "closed",
             CardStatus::NotNow => "not_now",
+            CardStatus::Published => "published",
         }
     }
 
     /// Check if this status represents an active card
     pub fn is_active(&self) -> bool {
-        matches!(self, CardStatus::Drafted | CardStatus::Triaged)
+        matches!(
+            self,
+            CardStatus::Drafted | CardStatus::Triaged | CardStatus::Published
+        )
     }
 
     /// Get emoji representation for Telegram display
@@ -61,6 +67,7 @@ impl CardStatus {
             CardStatus::Triaged => "📋",
             CardStatus::Closed => "✅",
             CardStatus::NotNow => "⏸️",
+            CardStatus::Published => "📢",
         }
     }
 
@@ -71,6 +78,7 @@ impl CardStatus {
             CardStatus::Triaged => "Active",
             CardStatus::Closed => "Closed",
             CardStatus::NotNow => "Postponed",
+            CardStatus::Published => "Published",
         }
     }
 }
@@ -92,6 +100,7 @@ mod tests {
             CardStatus::Triaged,
             CardStatus::Closed,
             CardStatus::NotNow,
+            CardStatus::Published,
         ] {
             let s = status.as_str();
             let parsed = CardStatus::from_str(s);
@@ -103,6 +112,7 @@ mod tests {
     fn test_is_active() {
         assert!(CardStatus::Drafted.is_active());
         assert!(CardStatus::Triaged.is_active());
+        assert!(CardStatus::Published.is_active());
         assert!(!CardStatus::Closed.is_active());
         assert!(!CardStatus::NotNow.is_active());
     }
