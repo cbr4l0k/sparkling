@@ -1,9 +1,9 @@
 [package]
-name = "fizzy_bot"
+name = "sparkling"
 version = "0.1.0"
 edition = "2021"
-authors = ["fizzy_bot"]
-description = "Telegram bot for Fizzy project management"
+authors = ["cbr4l0k"]
+description = "Sparkling is a telegram bot for Fizzy project management"
 
 [dependencies]
 # Telegram Bot Framework

@@ -6,15 +6,15 @@ use teloxide::prelude::*;
 use teloxide::utils::command::BotCommands;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-use fizzy_bot::application::use_cases::{
+use sparkling::application::use_cases::{
     GetCardDetailsInput, ListBoardCardsInput, ListBoardsInput, ListMyCardsInput,
 };
-use fizzy_bot::infrastructure::config::AppConfig;
-use fizzy_bot::infrastructure::persistence::{
+use sparkling::infrastructure::config::AppConfig;
+use sparkling::infrastructure::persistence::{
     create_pool, SqliteBoardRepository, SqliteCardRepository,
 };
-use fizzy_bot::infrastructure::telegram::bot::{create_bot, BotState, Command};
-use fizzy_bot::infrastructure::telegram::formatters::{BoardFormatter, CardFormatter};
+use sparkling::infrastructure::telegram::bot::{create_bot, BotState, Command};
+use sparkling::infrastructure::telegram::formatters::{BoardFormatter, CardFormatter};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -22,7 +22,7 @@ async fn main() -> anyhow::Result<()> {
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "info,fizzy_bot=debug".into()),
+                .unwrap_or_else(|_| "info,sparkling=debug".into()),
         )
         .with(tracing_subscriber::fmt::layer())
         .init();

@@ -1,4 +1,4 @@
-# Fizzy Bot
+# Sparkling Bot
 
 Ok, I found [this cool app to self host better looking/working Kanban
 app](https://www.fizzy.do/)... this is just a way for me to be able to use it
