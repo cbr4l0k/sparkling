@@ -24,29 +24,29 @@ I added a really insecure logger in the `app/controllers/concerns/authentication
 
 The following is the `docker-compose.yml` I wrote to run the migrations and similar stuff to be able to have a reliable service on startup.
 
-```docker-compose
+```yaml
 name: fizzy
- 
- services:
-   fizzy:
-     build: ./
-     restart: always
-     environment:
-       - SECRET_KEY_BASE=$SECRET_KEY_BASE
-     ports:
-       - "3000:3000"
-       - "3006:3006"
-     volumes:
-       - "$PATH_TO_THE_STORAGE_FOLDER/storage:/rails/storage"
-     entrypoint: []
-     command: >
-       bash -c "
-         ./bin/rails db:prepare &&
-         ./bin/rails db:migrate:cache &&
-         ./bin/rails db:migrate:cable &&
-         ./bin/rails db:migrate:queue &&
-         exec ./bin/thrust ./bin/rails server
-       "
+
+services:
+  fizzy:
+    build: ./
+    restart: always
+    environment:
+      - SECRET_KEY_BASE=$SECRET_KEY_BASE
+    ports:
+      - "3000:3000"
+      - "3006:3006"
+    volumes:
+        - "$PATH_TO_THE_STORAGE_FOLDER/storage:/rails/storage"
+    entrypoint: []
+    command: >
+      bash -c "
+        ./bin/rails db:prepare &&
+        ./bin/rails db:migrate:cache &&
+        ./bin/rails db:migrate:cable &&
+        ./bin/rails db:migrate:queue &&
+        exec ./bin/thrust ./bin/rails server
+      "
 ```
 
 The `PATH_TO_THE_STORAGE_FOLDER` is just a placeholder I setted up so that I could debug and understand how the database was configured. 
