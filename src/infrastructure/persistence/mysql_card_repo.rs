@@ -1,10 +1,10 @@
+use crate::domain::entities::Card;
+use crate::domain::errors::DomainError;
+use crate::domain::ports::{CardFilters, CardRepository, CreateCardInput, UpdateCardInput};
+use crate::domain::value_objects::{CardStatus, FizzyId};
 use async_trait::async_trait;
 use chrono::{DateTime, NaiveDate, Utc};
 use sqlx::{FromRow, SqlitePool};
-use crate::domain::entities::Card;
-use crate::domain::ports::{CardRepository, CardFilters, CreateCardInput, UpdateCardInput};
-use crate::domain::value_objects::{FizzyId, CardStatus};
-use crate::domain::errors::DomainError;
 
 pub struct SqliteCardRepository {
     pool: SqlitePool,
@@ -33,9 +33,17 @@ struct CardRow {
 }
 
 impl CardRow {
-    fn into_card(self, assignee_names: Vec<String>, tag_titles: Vec<String>) -> Result<Card, DomainError> {
-        let status = self.status.parse::<CardStatus>()
-            .map_err(|_| DomainError::InvalidState { message: format!("Invalid card status: {}", self.status) })?;
+    fn into_card(
+        self,
+        assignee_names: Vec<String>,
+        tag_titles: Vec<String>,
+    ) -> Result<Card, DomainError> {
+        let status = self
+            .status
+            .parse::<CardStatus>()
+            .map_err(|_| DomainError::InvalidState {
+                message: format!("Invalid card status: {}", self.status),
+            })?;
 
         Ok(Card {
             id: self.id,
@@ -68,14 +76,18 @@ impl SqliteCardRepository {
     }
 
     /// Load assignee names for a card
-    async fn load_assignees(&self, account_id: &FizzyId, card_id: &FizzyId) -> Result<Vec<String>, DomainError> {
+    async fn load_assignees(
+        &self,
+        account_id: &FizzyId,
+        card_id: &FizzyId,
+    ) -> Result<Vec<String>, DomainError> {
         let rows = sqlx::query_scalar::<_, String>(
             r#"
             SELECT u.name
             FROM assignments a
             JOIN users u ON a.assignee_id = u.id
             WHERE a.account_id = ? AND a.card_id = ?
-            "#
+            "#,
         )
         .bind(account_id)
         .bind(card_id)
@@ -87,14 +99,18 @@ impl SqliteCardRepository {
     }
 
     /// Load tag titles for a card
-    async fn load_tags(&self, account_id: &FizzyId, card_id: &FizzyId) -> Result<Vec<String>, DomainError> {
+    async fn load_tags(
+        &self,
+        account_id: &FizzyId,
+        card_id: &FizzyId,
+    ) -> Result<Vec<String>, DomainError> {
         let rows = sqlx::query_scalar::<_, String>(
             r#"
             SELECT t.title
             FROM taggings tg
             JOIN tags t ON tg.tag_id = t.id
             WHERE tg.account_id = ? AND tg.card_id = ?
-            "#
+            "#,
         )
         .bind(account_id)
         .bind(card_id)
@@ -231,7 +247,11 @@ impl CardRepository for SqliteCardRepository {
         // Add status exclusion filter
         if let Some(ref exclude_statuses) = filters.exclude_status {
             if !exclude_statuses.is_empty() {
-                let placeholders = exclude_statuses.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
+                let placeholders = exclude_statuses
+                    .iter()
+                    .map(|_| "?")
+                    .collect::<Vec<_>>()
+                    .join(", ");
                 query.push_str(&format!(" AND c.status NOT IN ({})", placeholders));
                 for status in exclude_statuses {
                     bindings.push(status.as_str().to_string());
@@ -263,7 +283,9 @@ impl CardRepository for SqliteCardRepository {
 
         // Build the query with dynamic bindings
         // SQLx doesn't support dynamic binding easily, so we rebuild with proper types
-        let rows = self.execute_list_query(&query, account_id, &filters).await?;
+        let rows = self
+            .execute_list_query(&query, account_id, &filters)
+            .await?;
 
         // Load assignees and tags for each card
         let mut cards = Vec::with_capacity(rows.len());
@@ -305,11 +327,7 @@ impl CardRepository for SqliteCardRepository {
         todo!("close implementation")
     }
 
-    async fn reopen(
-        &self,
-        _account_id: &FizzyId,
-        _card_id: &FizzyId,
-    ) -> Result<(), DomainError> {
+    async fn reopen(&self, _account_id: &FizzyId, _card_id: &FizzyId) -> Result<(), DomainError> {
         // TODO: Implement in Phase 3
         todo!("reopen implementation")
     }
@@ -328,7 +346,10 @@ impl SqliteCardRepository {
         let mut conditions = vec!["c.account_id = ?".to_string()];
 
         if filters.assignee_id.is_some() {
-            conditions.push("EXISTS (SELECT 1 FROM assignments a WHERE a.card_id = c.id AND a.assignee_id = ?)".to_string());
+            conditions.push(
+                "EXISTS (SELECT 1 FROM assignments a WHERE a.card_id = c.id AND a.assignee_id = ?)"
+                    .to_string(),
+            );
         }
 
         if filters.board_id.is_some() {
@@ -348,7 +369,11 @@ impl SqliteCardRepository {
 
         if let Some(ref exclude_statuses) = filters.exclude_status {
             if !exclude_statuses.is_empty() {
-                let placeholders = exclude_statuses.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
+                let placeholders = exclude_statuses
+                    .iter()
+                    .map(|_| "?")
+                    .collect::<Vec<_>>()
+                    .join(", ");
                 conditions.push(format!("c.status NOT IN ({})", placeholders));
             }
         }

@@ -119,6 +119,7 @@ Type /help for all commands."#;
                 include_closed: false,
                 limit: Some(20),
             };
+            println!("{:?}", input);
 
             match state.list_my_cards.execute(input).await {
                 Ok(output) => {

@@ -1,8 +1,8 @@
+use crate::domain::entities::Card;
+use crate::domain::errors::DomainError;
+use crate::domain::value_objects::{CardStatus, FizzyId};
 use async_trait::async_trait;
 use chrono::NaiveDate;
-use crate::domain::entities::Card;
-use crate::domain::value_objects::{FizzyId, CardStatus};
-use crate::domain::errors::DomainError;
 
 /// Input for creating a new card
 #[derive(Debug, Clone)]
@@ -86,9 +86,5 @@ pub trait CardRepository: Send + Sync {
     ) -> Result<(), DomainError>;
 
     /// Reopen a closed card
-    async fn reopen(
-        &self,
-        account_id: &FizzyId,
-        card_id: &FizzyId,
-    ) -> Result<(), DomainError>;
+    async fn reopen(&self, account_id: &FizzyId, card_id: &FizzyId) -> Result<(), DomainError>;
 }

@@ -1,5 +1,5 @@
-use thiserror::Error;
 use crate::domain::errors::DomainError;
+use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum ApplicationError {

@@ -1,13 +1,14 @@
-use std::sync::Arc;
-use crate::domain::entities::Card;
-use crate::domain::ports::{CardRepository, CardFilters};
-use crate::domain::value_objects::{FizzyId, CardStatus};
 use crate::application::errors::ApplicationError;
+use crate::domain::entities::Card;
+use crate::domain::ports::{CardFilters, CardRepository};
+use crate::domain::value_objects::{CardStatus, FizzyId};
+use std::sync::Arc;
 
 pub struct ListMyCardsUseCase {
     card_repository: Arc<dyn CardRepository>,
 }
 
+#[derive(Debug)]
 pub struct ListMyCardsInput {
     pub account_id: FizzyId,
     pub user_id: FizzyId,
@@ -24,7 +25,10 @@ impl ListMyCardsUseCase {
         Self { card_repository }
     }
 
-    pub async fn execute(&self, input: ListMyCardsInput) -> Result<ListMyCardsOutput, ApplicationError> {
+    pub async fn execute(
+        &self,
+        input: ListMyCardsInput,
+    ) -> Result<ListMyCardsOutput, ApplicationError> {
         let filters = CardFilters {
             assignee_id: Some(input.user_id),
             exclude_status: if input.include_closed {
@@ -36,7 +40,8 @@ impl ListMyCardsUseCase {
             ..Default::default()
         };
 
-        let cards = self.card_repository
+        let cards = self
+            .card_repository
             .list(&input.account_id, filters)
             .await
             .map_err(ApplicationError::DomainError)?;

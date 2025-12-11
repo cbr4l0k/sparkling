@@ -1,5 +1,5 @@
-use chrono::{DateTime, Utc};
 use crate::domain::value_objects::FizzyId;
+use chrono::{DateTime, Utc};
 
 /// User role in an account
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
