@@ -356,6 +356,14 @@ impl SqliteCardRepository {
             conditions.push("c.creator_id = ?".to_string());
         }
 
+        if let Some(exclude_closed) = filters.exclude_closed {
+            if exclude_closed {
+                conditions.push(
+                    "NOT EXISTS (SELECT 1 FROM closures cl WHERE cl.card_id = c.id)".to_string(),
+                );
+            }
+        }
+
         if filters.board_id.is_some() {
             conditions.push("c.board_id = ?".to_string());
         }

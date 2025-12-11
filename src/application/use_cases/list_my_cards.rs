@@ -31,10 +31,10 @@ impl ListMyCardsUseCase {
     ) -> Result<ListMyCardsOutput, ApplicationError> {
         let filters = CardFilters {
             creator_id: Some(input.user_id),
-            exclude_status: if input.include_closed {
+            exclude_closed: if input.include_closed {
                 None
             } else {
-                Some(vec![CardStatus::Closed, CardStatus::NotNow])
+                Some(true)
             },
             limit: input.limit.or(Some(20)),
             ..Default::default()

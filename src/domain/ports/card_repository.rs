@@ -34,6 +34,7 @@ pub struct CardFilters {
     pub column_id: Option<FizzyId>,
     pub status: Option<Vec<CardStatus>>,
     pub exclude_status: Option<Vec<CardStatus>>,
+    pub exclude_closed: Option<bool>,
     pub is_golden: Option<bool>,
     pub limit: Option<i64>,
     pub offset: Option<i64>,
