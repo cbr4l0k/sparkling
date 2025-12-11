@@ -30,7 +30,7 @@ impl ListMyCardsUseCase {
         input: ListMyCardsInput,
     ) -> Result<ListMyCardsOutput, ApplicationError> {
         let filters = CardFilters {
-            assignee_id: Some(input.user_id),
+            creator_id: Some(input.user_id),
             exclude_status: if input.include_closed {
                 None
             } else {

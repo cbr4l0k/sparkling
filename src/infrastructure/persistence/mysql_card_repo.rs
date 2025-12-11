@@ -352,6 +352,10 @@ impl SqliteCardRepository {
             );
         }
 
+        if filters.creator_id.is_some() {
+            conditions.push("c.creator_id = ?".to_string());
+        }
+
         if filters.board_id.is_some() {
             conditions.push("c.board_id = ?".to_string());
         }
@@ -435,6 +439,10 @@ impl SqliteCardRepository {
         // Bind optional filters in order
         if let Some(ref assignee_id) = filters.assignee_id {
             query_builder = query_builder.bind(assignee_id);
+        }
+
+        if let Some(ref creator_id) = filters.creator_id {
+            query_builder = query_builder.bind(creator_id);
         }
 
         if let Some(ref board_id) = filters.board_id {

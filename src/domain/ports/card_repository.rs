@@ -29,6 +29,7 @@ pub struct UpdateCardInput {
 #[derive(Debug, Clone, Default)]
 pub struct CardFilters {
     pub assignee_id: Option<FizzyId>,
+    pub creator_id: Option<FizzyId>,
     pub board_id: Option<FizzyId>,
     pub column_id: Option<FizzyId>,
     pub status: Option<Vec<CardStatus>>,
