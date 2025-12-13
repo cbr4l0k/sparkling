@@ -1,5 +1,5 @@
-use teloxide::types::{InlineKeyboardButton, InlineKeyboardMarkup};
 use crate::domain::entities::Board;
+use teloxide::types::{InlineKeyboardButton, InlineKeyboardMarkup};
 
 /// Create inline keyboard for board selection
 pub fn board_selector_keyboard(boards: &[Board], callback_prefix: &str) -> InlineKeyboardMarkup {

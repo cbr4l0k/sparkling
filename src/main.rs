@@ -1,17 +1,13 @@
 use std::sync::Arc;
 use teloxide::prelude::*;
-use teloxide::utils::command::BotCommands;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-use sparkling::application::use_cases::{
-    GetCardDetailsInput, ListBoardCardsInput, ListBoardsInput, ListMyCardsInput,
-};
 use sparkling::infrastructure::config::AppConfig;
 use sparkling::infrastructure::persistence::{
     create_pool, SqliteBoardRepository, SqliteCardRepository,
 };
 use sparkling::infrastructure::telegram::bot::{create_bot, BotState, Command};
-use sparkling::infrastructure::telegram::formatters::{BoardFormatter, CardFormatter};
+use sparkling::infrastructure::telegram::handlers;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -88,184 +84,17 @@ async fn handle_command(
     }
 
     match cmd {
-        Command::Start => {
-            let welcome = r#"Welcome to Fizzy Bot!
-
-I help you manage your Fizzy cards from Telegram.
-
-Quick commands:
-/me - Your assigned cards
-/boards - List boards
-/card 123 - View card #123
-/create My new task - Create a card
-/close 123 - Close card #123
-
-Type /help for all commands."#;
-            bot.send_message(msg.chat.id, welcome).await?;
-        }
-
-        Command::Help => {
-            let help_text = Command::descriptions().to_string();
-            bot.send_message(msg.chat.id, help_text).await?;
-        }
-
-        Command::Me | Command::MyCards => {
-            let input = ListMyCardsInput {
-                account_id: state.account_id(),
-                user_id: state.user_id(),
-                include_closed: false,
-                limit: Some(20),
-            };
-
-            match state.list_my_cards.execute(input).await {
-                Ok(output) => {
-                    let response = if output.cards.is_empty() {
-                        "📋 You have no assigned cards.".to_string()
-                    } else {
-                        format!(
-                            "📋 <b>Your Cards</b> ({})\n\n{}",
-                            output.cards.len(),
-                            CardFormatter::format_card_list(&output.cards)
-                        )
-                    };
-                    bot.send_message(msg.chat.id, response)
-                        .parse_mode(teloxide::types::ParseMode::Html)
-                        .await?;
-                }
-                Err(e) => {
-                    tracing::error!("Error listing cards: {:?}", e);
-                    bot.send_message(msg.chat.id, format!("Error: {}", e))
-                        .await?;
-                }
-            }
-        }
-
-        Command::Boards => {
-            let input = ListBoardsInput {
-                account_id: state.account_id(),
-                user_id: state.user_id(),
-            };
-
-            match state.list_boards.execute(input).await {
-                Ok(output) => {
-                    let response = if output.boards.is_empty() {
-                        "📁 No boards found.".to_string()
-                    } else {
-                        format!(
-                            "📁 <b>Your Boards</b> ({})\n\n{}",
-                            output.boards.len(),
-                            BoardFormatter::format_board_list(&output.boards)
-                        )
-                    };
-                    bot.send_message(msg.chat.id, response)
-                        .parse_mode(teloxide::types::ParseMode::Html)
-                        .await?;
-                }
-                Err(e) => {
-                    tracing::error!("Error listing boards: {:?}", e);
-                    bot.send_message(msg.chat.id, format!("Error: {}", e))
-                        .await?;
-                }
-            }
-        }
-
-        Command::Board { name } => {
-            let input = ListBoardCardsInput {
-                account_id: state.account_id(),
-                user_id: state.user_id(),
-                board_name: name.clone(),
-                limit: Some(20),
-            };
-
-            match state.list_board_cards.execute(input).await {
-                Ok(output) => {
-                    let response = if output.cards.is_empty() {
-                        format!("📁 <b>{}</b>\n\nNo active cards.", output.board_name)
-                    } else {
-                        format!(
-                            "📁 <b>{}</b> ({} cards)\n\n{}",
-                            output.board_name,
-                            output.cards.len(),
-                            CardFormatter::format_card_list(&output.cards)
-                        )
-                    };
-                    bot.send_message(msg.chat.id, response)
-                        .parse_mode(teloxide::types::ParseMode::Html)
-                        .await?;
-                }
-                Err(e) => {
-                    tracing::error!("Error listing board cards: {:?}", e);
-                    bot.send_message(msg.chat.id, format!("Error: {}", e))
-                        .await?;
-                }
-            }
-        }
-
-        Command::Card { number } => {
-            let input = GetCardDetailsInput {
-                account_id: state.account_id(),
-                card_number: number,
-            };
-
-            match state.get_card_details.execute(input).await {
-                Ok(card) => {
-                    let response = CardFormatter::format_card(&card, state.base_url());
-                    bot.send_message(msg.chat.id, response)
-                        .parse_mode(teloxide::types::ParseMode::Html)
-                        .await?;
-                }
-                Err(e) => {
-                    tracing::error!("Error getting card details: {:?}", e);
-                    bot.send_message(msg.chat.id, format!("Error: {}", e))
-                        .await?;
-                }
-            }
-        }
-
-        Command::Create { title } => {
-            if title.trim().is_empty() {
-                bot.send_message(msg.chat.id, "Usage: /create <title>")
-                    .await?;
-            } else {
-                // TODO: Implement with use case in Phase 3
-                bot.send_message(
-                    msg.chat.id,
-                    format!("Card '{}' will be created (coming in Phase 3!)", title),
-                )
-                .await?;
-            }
-        }
-
-        Command::Close { number } => {
-            // TODO: Implement with use case in Phase 3
-            bot.send_message(
-                msg.chat.id,
-                format!("Card #{} will be closed (coming in Phase 3!)", number),
-            )
-            .await?;
-        }
-
-        Command::Reopen { number } => {
-            // TODO: Implement with use case in Phase 3
-            bot.send_message(
-                msg.chat.id,
-                format!("Card #{} will be reopened (coming in Phase 3!)", number),
-            )
-            .await?;
-        }
-
+        Command::Start => handlers::start::handle(bot, msg, state).await?,
+        Command::Help => handlers::help::handle(bot, msg, state).await?,
+        Command::Me | Command::MyCards => handlers::my_cards::handle(bot, msg, state).await?,
+        Command::Boards => handlers::boards::handle(bot, msg, state).await?,
+        Command::Board { name } => handlers::board::handle(bot, msg, state, name).await?,
+        Command::Card { number } => handlers::card::handle(bot, msg, state, number).await?,
+        Command::Create { title } => handlers::create::handle(bot, msg, state, title).await?,
+        Command::Close { number } => handlers::close::handle(bot, msg, state, number).await?,
+        Command::Reopen { number } => handlers::reopen::handle(bot, msg, state, number).await?,
         Command::Comment { number, text } => {
-            if text.trim().is_empty() {
-                bot.send_message(msg.chat.id, "Usage: /comment <number> <text>")
-                    .await?;
-            } else {
-                // TODO: Implement with use case in Phase 3
-                bot.send_message(
-                    msg.chat.id,
-                    format!("Comment on card #{} (coming in Phase 3!)", number),
-                )
-                .await?;
-            }
+            handlers::comment::handle(bot, msg, state, number, text).await?
         }
     }
 

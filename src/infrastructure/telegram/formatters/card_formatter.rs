@@ -5,9 +5,12 @@ pub struct CardFormatter;
 impl CardFormatter {
     /// Format a single card for display
     pub fn format_card(card: &Card, base_url: Option<&str>) -> String {
-        let mut lines = vec![
-            format!("{} <b>#{}</b> {}", card.status.emoji(), card.number, escape_html(&card.title)),
-        ];
+        let mut lines = vec![format!(
+            "{} <b>#{}</b> {}",
+            card.status.emoji(),
+            card.number,
+            escape_html(&card.title)
+        )];
 
         if let Some(board_name) = &card.board_name {
             lines.push(format!("Board: {}", escape_html(board_name)));
@@ -51,7 +54,8 @@ impl CardFormatter {
         let lines: Vec<String> = cards
             .iter()
             .map(|card| {
-                let due_str = card.due_on
+                let due_str = card
+                    .due_on
                     .map(|d| format!(" 📅 {}", d))
                     .unwrap_or_default();
 

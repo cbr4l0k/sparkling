@@ -13,11 +13,17 @@ impl BoardFormatter {
             .iter()
             .map(|board| {
                 let access_indicator = if board.all_access { "🌐" } else { "🔒" };
-                let card_count = board.card_count
+                let card_count = board
+                    .card_count
                     .map(|c| format!(" ({} cards)", c))
                     .unwrap_or_default();
 
-                format!("{} <b>{}</b>{}", access_indicator, escape_html(&board.name), card_count)
+                format!(
+                    "{} <b>{}</b>{}",
+                    access_indicator,
+                    escape_html(&board.name),
+                    card_count
+                )
             })
             .collect();
 
