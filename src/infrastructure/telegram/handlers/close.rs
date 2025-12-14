@@ -1,6 +1,7 @@
 use std::sync::Arc;
 use teloxide::prelude::*;
 
+use crate::application::use_cases::CloseCardInput;
 use crate::infrastructure::telegram::bot::BotState;
 
 pub async fn handle(
@@ -9,23 +10,22 @@ pub async fn handle(
     state: Arc<BotState>,
     number: i64,
 ) -> ResponseResult<()> {
-    let user_id = msg.from.as_ref().map(|u| u.id.0 as i64).unwrap_or(0);
+    let input = CloseCardInput {
+        account_id: state.account_id(),
+        user_id: state.user_id(),
+        card_number: number,
+    };
 
-    if !state.is_authorized(user_id) {
-        bot.send_message(
-            msg.chat.id,
-            "Sorry, you are not authorized to use this bot.",
-        )
-        .await?;
-        return Ok(());
+    match state.close_card.execute(input).await {
+        Ok(()) => {
+            bot.send_message(msg.chat.id, format!("Card #{} has been closed.", number))
+                .await?;
+        }
+        Err(e) => {
+            bot.send_message(msg.chat.id, format!("Failed to close card: {}", e))
+                .await?;
+        }
     }
-
-    // TODO: Implement with use case in Phase 3
-    bot.send_message(
-        msg.chat.id,
-        format!("Card #{} will be closed (coming in Phase 3!)", number),
-    )
-    .await?;
 
     Ok(())
 }

@@ -3,6 +3,7 @@ use crate::domain::errors::DomainError;
 use crate::domain::ports::CommentRepository;
 use crate::domain::value_objects::FizzyId;
 use async_trait::async_trait;
+use chrono::Utc;
 use sqlx::{SqlitePool, Row};
 
 pub struct SqliteCommentRepository {
@@ -78,12 +79,78 @@ impl CommentRepository for SqliteCommentRepository {
 
     async fn create(
         &self,
-        _account_id: &FizzyId,
-        _card_id: &FizzyId,
-        _creator_id: &FizzyId,
-        _content: &str,
+        account_id: &FizzyId,
+        card_id: &FizzyId,
+        creator_id: &FizzyId,
+        content: &str,
     ) -> Result<Comment, DomainError> {
-        // TODO: Implement in Phase 3
-        todo!("create implementation")
+        let comment_id = FizzyId::generate();
+        let now = Utc::now();
+
+        // Start a transaction
+        let mut tx = self.pool.begin().await
+            .map_err(|e| DomainError::InfrastructureError(e.to_string()))?;
+
+        // 1. Insert comment record
+        sqlx::query(
+            r#"
+            INSERT INTO comments (id, account_id, card_id, creator_id, created_at, updated_at)
+            VALUES (?, ?, ?, ?, datetime('now'), datetime('now'))
+            "#,
+        )
+        .bind(&comment_id)
+        .bind(account_id)
+        .bind(card_id)
+        .bind(creator_id)
+        .execute(&mut *tx)
+        .await
+        .map_err(|e| DomainError::InfrastructureError(e.to_string()))?;
+
+        // 2. Insert body into action_text_rich_texts
+        let rich_text_id = FizzyId::generate();
+        sqlx::query(
+            r#"
+            INSERT INTO action_text_rich_texts (
+                id, account_id, record_type, record_id, name, body, created_at, updated_at
+            )
+            VALUES (?, ?, 'Comment', ?, 'body', ?, datetime('now'), datetime('now'))
+            "#,
+        )
+        .bind(&rich_text_id)
+        .bind(account_id)
+        .bind(&comment_id)
+        .bind(content)
+        .execute(&mut *tx)
+        .await
+        .map_err(|e| DomainError::InfrastructureError(e.to_string()))?;
+
+        // 3. Update card's last_active_at
+        sqlx::query(
+            r#"
+            UPDATE cards
+            SET last_active_at = datetime('now'), updated_at = datetime('now')
+            WHERE id = ? AND account_id = ?
+            "#,
+        )
+        .bind(card_id)
+        .bind(account_id)
+        .execute(&mut *tx)
+        .await
+        .map_err(|e| DomainError::InfrastructureError(e.to_string()))?;
+
+        tx.commit().await
+            .map_err(|e| DomainError::InfrastructureError(e.to_string()))?;
+
+        // Return the created comment
+        Ok(Comment {
+            id: comment_id,
+            account_id: account_id.clone(),
+            card_id: card_id.clone(),
+            creator_id: creator_id.clone(),
+            content: content.to_string(),
+            created_at: now,
+            updated_at: now,
+            creator_name: None,
+        })
     }
 }

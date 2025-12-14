@@ -4,7 +4,8 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 use sparkling::infrastructure::config::AppConfig;
 use sparkling::infrastructure::persistence::{
-    create_pool, SqliteBoardRepository, SqliteCardRepository,
+    create_pool, SqliteBoardRepository, SqliteCardRepository, SqliteCommentRepository,
+    SqliteEventRepository,
 };
 use sparkling::infrastructure::telegram::bot::{create_bot, BotState, Command};
 use sparkling::infrastructure::telegram::handlers;
@@ -36,12 +37,16 @@ async fn main() -> anyhow::Result<()> {
     // Create repositories
     let card_repository = Arc::new(SqliteCardRepository::new(pool.clone()));
     let board_repository = Arc::new(SqliteBoardRepository::new(pool.clone()));
+    let comment_repository = Arc::new(SqliteCommentRepository::new(pool.clone()));
+    let event_repository = Arc::new(SqliteEventRepository::new(pool.clone()));
 
     // Create bot state with use cases
     let state = Arc::new(BotState::new(
         config.clone(),
         card_repository,
         board_repository,
+        comment_repository,
+        event_repository,
     ));
 
     // Create bot

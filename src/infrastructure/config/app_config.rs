@@ -73,7 +73,7 @@ impl DatabaseConfig {
     }
 
     pub fn connection_string(&self) -> String {
-        format!("sqlite://{}?mode=ro", self.path)
+        format!("sqlite://{}?mode=rwc", self.path)
     }
 }
 

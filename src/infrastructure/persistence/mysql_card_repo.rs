@@ -300,11 +300,78 @@ impl CardRepository for SqliteCardRepository {
 
     async fn create(
         &self,
-        _account_id: &FizzyId,
-        _input: CreateCardInput,
+        account_id: &FizzyId,
+        input: CreateCardInput,
     ) -> Result<Card, DomainError> {
-        // TODO: Implement in Phase 3
-        todo!("create implementation")
+        let card_id = FizzyId::generate();
+
+        // Start a transaction
+        let mut tx = self.pool.begin().await
+            .map_err(|e| DomainError::InfrastructureError(e.to_string()))?;
+
+        // 1. Increment cards_count and get new number
+        sqlx::query("UPDATE accounts SET cards_count = cards_count + 1 WHERE id = ?")
+            .bind(account_id)
+            .execute(&mut *tx)
+            .await
+            .map_err(|e| DomainError::InfrastructureError(e.to_string()))?;
+
+        let card_number: i64 = sqlx::query_scalar("SELECT cards_count FROM accounts WHERE id = ?")
+            .bind(account_id)
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(|e| DomainError::InfrastructureError(e.to_string()))?;
+
+        // 2. Insert the card
+        sqlx::query(
+            r#"
+            INSERT INTO cards (
+                id, account_id, board_id, column_id, creator_id,
+                number, title, status, last_active_at, created_at, updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'), datetime('now'))
+            "#,
+        )
+        .bind(&card_id)
+        .bind(account_id)
+        .bind(&input.board_id)
+        .bind(&input.column_id)
+        .bind(&input.creator_id)
+        .bind(card_number)
+        .bind(&input.title)
+        .bind(input.status.as_str())
+        .execute(&mut *tx)
+        .await
+        .map_err(|e| DomainError::InfrastructureError(e.to_string()))?;
+
+        // 3. Insert description if provided
+        if let Some(ref description) = input.description {
+            let rich_text_id = FizzyId::generate();
+            sqlx::query(
+                r#"
+                INSERT INTO action_text_rich_texts (
+                    id, account_id, record_type, record_id, name, body, created_at, updated_at
+                )
+                VALUES (?, ?, 'Card', ?, 'description', ?, datetime('now'), datetime('now'))
+                "#,
+            )
+            .bind(&rich_text_id)
+            .bind(account_id)
+            .bind(&card_id)
+            .bind(description)
+            .execute(&mut *tx)
+            .await
+            .map_err(|e| DomainError::InfrastructureError(e.to_string()))?;
+        }
+
+        // Commit transaction
+        tx.commit().await
+            .map_err(|e| DomainError::InfrastructureError(e.to_string()))?;
+
+        // Fetch and return the created card
+        self.find_by_id(account_id, &card_id)
+            .await?
+            .ok_or_else(|| DomainError::InfrastructureError("Failed to fetch created card".to_string()))
     }
 
     async fn update(
@@ -319,17 +386,87 @@ impl CardRepository for SqliteCardRepository {
 
     async fn close(
         &self,
-        _account_id: &FizzyId,
-        _card_id: &FizzyId,
-        _user_id: &FizzyId,
+        account_id: &FizzyId,
+        card_id: &FizzyId,
+        user_id: &FizzyId,
     ) -> Result<(), DomainError> {
-        // TODO: Implement in Phase 3
-        todo!("close implementation")
+        let closure_id = FizzyId::generate();
+
+        // Start a transaction
+        let mut tx = self.pool.begin().await
+            .map_err(|e| DomainError::InfrastructureError(e.to_string()))?;
+
+        // 1. Insert closure record
+        sqlx::query(
+            r#"
+            INSERT INTO closures (id, account_id, card_id, closer_id, created_at, updated_at)
+            VALUES (?, ?, ?, ?, datetime('now'), datetime('now'))
+            "#,
+        )
+        .bind(&closure_id)
+        .bind(account_id)
+        .bind(card_id)
+        .bind(user_id)
+        .execute(&mut *tx)
+        .await
+        .map_err(|e| DomainError::InfrastructureError(e.to_string()))?;
+
+        // 2. Update card status
+        sqlx::query(
+            r#"
+            UPDATE cards
+            SET status = 'closed', updated_at = datetime('now')
+            WHERE id = ? AND account_id = ?
+            "#,
+        )
+        .bind(card_id)
+        .bind(account_id)
+        .execute(&mut *tx)
+        .await
+        .map_err(|e| DomainError::InfrastructureError(e.to_string()))?;
+
+        tx.commit().await
+            .map_err(|e| DomainError::InfrastructureError(e.to_string()))?;
+
+        Ok(())
     }
 
-    async fn reopen(&self, _account_id: &FizzyId, _card_id: &FizzyId) -> Result<(), DomainError> {
-        // TODO: Implement in Phase 3
-        todo!("reopen implementation")
+    async fn reopen(&self, account_id: &FizzyId, card_id: &FizzyId) -> Result<(), DomainError> {
+        // Start a transaction
+        let mut tx = self.pool.begin().await
+            .map_err(|e| DomainError::InfrastructureError(e.to_string()))?;
+
+        // 1. Delete closure record
+        sqlx::query(
+            r#"
+            DELETE FROM closures
+            WHERE card_id = ? AND account_id = ?
+            "#,
+        )
+        .bind(card_id)
+        .bind(account_id)
+        .execute(&mut *tx)
+        .await
+        .map_err(|e| DomainError::InfrastructureError(e.to_string()))?;
+
+        // 2. Update card status back to published
+        sqlx::query(
+            r#"
+            UPDATE cards
+            SET status = 'published', updated_at = datetime('now')
+            WHERE id = ? AND account_id = ?
+            "#,
+        )
+        .bind(card_id)
+        .bind(account_id)
+        .execute(&mut *tx)
+        .await
+        .map_err(|e| DomainError::InfrastructureError(e.to_string()))?;
+
+        tx.commit().await
+            .map_err(|e| DomainError::InfrastructureError(e.to_string()))?;
+
+        Ok(())
     }
 }
 

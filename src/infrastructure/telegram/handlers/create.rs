@@ -1,6 +1,7 @@
 use std::sync::Arc;
 use teloxide::prelude::*;
 
+use crate::application::use_cases::CreateCardUseCaseInput;
 use crate::infrastructure::telegram::bot::BotState;
 
 pub async fn handle(
@@ -9,27 +10,32 @@ pub async fn handle(
     state: Arc<BotState>,
     title: String,
 ) -> ResponseResult<()> {
-    let user_id = msg.from.as_ref().map(|u| u.id.0 as i64).unwrap_or(0);
-
-    if !state.is_authorized(user_id) {
-        bot.send_message(
-            msg.chat.id,
-            "Sorry, you are not authorized to use this bot.",
-        )
-        .await?;
-        return Ok(());
-    }
-
     if title.trim().is_empty() {
         bot.send_message(msg.chat.id, "Usage: /create <title>")
             .await?;
-    } else {
-        // TODO: Implement with use case in Phase 3
-        bot.send_message(
-            msg.chat.id,
-            format!("Card '{}' will be created (coming in Phase 3!)", title),
-        )
-        .await?;
+        return Ok(());
+    }
+
+    let input = CreateCardUseCaseInput {
+        account_id: state.account_id(),
+        user_id: state.user_id(),
+        board_id: state.default_board_id(),
+        title: title.trim().to_string(),
+        description: None,
+    };
+
+    match state.create_card.execute(input).await {
+        Ok(card) => {
+            let mut response = format!("Created card #{}: {}", card.number, card.title);
+            if let Some(base_url) = state.base_url() {
+                response.push_str(&format!("\n{}/cards/{}", base_url, card.number));
+            }
+            bot.send_message(msg.chat.id, response).await?;
+        }
+        Err(e) => {
+            bot.send_message(msg.chat.id, format!("Failed to create card: {}", e))
+                .await?;
+        }
     }
 
     Ok(())

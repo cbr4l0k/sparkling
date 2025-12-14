@@ -2,9 +2,10 @@ use std::sync::Arc;
 use teloxide::prelude::*;
 
 use crate::application::use_cases::{
-    GetCardDetailsUseCase, ListBoardCardsUseCase, ListBoardsUseCase, ListMyCardsUseCase,
+    AddCommentUseCase, CloseCardUseCase, CreateCardUseCase, GetCardDetailsUseCase,
+    ListBoardCardsUseCase, ListBoardsUseCase, ListMyCardsUseCase, ReopenCardUseCase,
 };
-use crate::domain::ports::{BoardRepository, CardRepository};
+use crate::domain::ports::{BoardRepository, CardRepository, CommentRepository, EventRepository};
 use crate::domain::value_objects::FizzyId;
 use crate::infrastructure::config::AppConfig;
 
@@ -12,11 +13,16 @@ use crate::infrastructure::config::AppConfig;
 #[derive(Clone)]
 pub struct BotState {
     pub config: Arc<AppConfig>,
-    // Use cases for Phase 2
+    // Use cases for Phase 2 (Read)
     pub list_my_cards: Arc<ListMyCardsUseCase>,
     pub get_card_details: Arc<GetCardDetailsUseCase>,
     pub list_boards: Arc<ListBoardsUseCase>,
     pub list_board_cards: Arc<ListBoardCardsUseCase>,
+    // Use cases for Phase 3 (Write)
+    pub create_card: Arc<CreateCardUseCase>,
+    pub close_card: Arc<CloseCardUseCase>,
+    pub reopen_card: Arc<ReopenCardUseCase>,
+    pub add_comment: Arc<AddCommentUseCase>,
 }
 
 impl BotState {
@@ -24,15 +30,37 @@ impl BotState {
         config: AppConfig,
         card_repository: Arc<dyn CardRepository>,
         board_repository: Arc<dyn BoardRepository>,
+        comment_repository: Arc<dyn CommentRepository>,
+        event_repository: Arc<dyn EventRepository>,
     ) -> Self {
         Self {
             config: Arc::new(config),
+            // Read use cases
             list_my_cards: Arc::new(ListMyCardsUseCase::new(card_repository.clone())),
             get_card_details: Arc::new(GetCardDetailsUseCase::new(card_repository.clone())),
             list_boards: Arc::new(ListBoardsUseCase::new(board_repository.clone())),
             list_board_cards: Arc::new(ListBoardCardsUseCase::new(
+                card_repository.clone(),
+                board_repository.clone(),
+            )),
+            // Write use cases
+            create_card: Arc::new(CreateCardUseCase::new(
+                card_repository.clone(),
+                board_repository.clone(),
+                event_repository.clone(),
+            )),
+            close_card: Arc::new(CloseCardUseCase::new(
+                card_repository.clone(),
+                event_repository.clone(),
+            )),
+            reopen_card: Arc::new(ReopenCardUseCase::new(
+                card_repository.clone(),
+                event_repository.clone(),
+            )),
+            add_comment: Arc::new(AddCommentUseCase::new(
+                comment_repository,
                 card_repository,
-                board_repository,
+                event_repository,
             )),
         }
     }
@@ -55,6 +83,11 @@ impl BotState {
     /// Get the base URL for Fizzy web UI
     pub fn base_url(&self) -> Option<&str> {
         self.config.fizzy.base_url.as_deref()
+    }
+
+    /// Get the default board ID for card creation
+    pub fn default_board_id(&self) -> FizzyId {
+        FizzyId::new(self.config.fizzy.default_board_id.clone())
     }
 }
 

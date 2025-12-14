@@ -1,6 +1,7 @@
 use std::sync::Arc;
 use teloxide::prelude::*;
 
+use crate::application::use_cases::AddCommentInput;
 use crate::infrastructure::telegram::bot::BotState;
 
 pub async fn handle(
@@ -10,27 +11,31 @@ pub async fn handle(
     number: i64,
     text: String,
 ) -> ResponseResult<()> {
-    let user_id = msg.from.as_ref().map(|u| u.id.0 as i64).unwrap_or(0);
-
-    if !state.is_authorized(user_id) {
-        bot.send_message(
-            msg.chat.id,
-            "Sorry, you are not authorized to use this bot.",
-        )
-        .await?;
-        return Ok(());
-    }
-
     if text.trim().is_empty() {
         bot.send_message(msg.chat.id, "Usage: /comment <number> <text>")
             .await?;
-    } else {
-        // TODO: Implement with use case in Phase 3
-        bot.send_message(
-            msg.chat.id,
-            format!("Comment on card #{} (coming in Phase 3!)", number),
-        )
-        .await?;
+        return Ok(());
+    }
+
+    let input = AddCommentInput {
+        account_id: state.account_id(),
+        user_id: state.user_id(),
+        card_number: number,
+        content: text.trim().to_string(),
+    };
+
+    match state.add_comment.execute(input).await {
+        Ok(_comment) => {
+            bot.send_message(
+                msg.chat.id,
+                format!("Comment added to card #{}.", number),
+            )
+            .await?;
+        }
+        Err(e) => {
+            bot.send_message(msg.chat.id, format!("Failed to add comment: {}", e))
+                .await?;
+        }
     }
 
     Ok(())
