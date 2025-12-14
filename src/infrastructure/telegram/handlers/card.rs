@@ -4,6 +4,7 @@ use teloxide::prelude::*;
 use crate::application::use_cases::GetCardDetailsInput;
 use crate::infrastructure::telegram::bot::BotState;
 use crate::infrastructure::telegram::formatters::CardFormatter;
+use crate::infrastructure::telegram::keyboards::card_actions_keyboard;
 
 pub async fn handle(
     bot: Bot,
@@ -30,8 +31,10 @@ pub async fn handle(
     match state.get_card_details.execute(input).await {
         Ok(card) => {
             let response = CardFormatter::format_card(&card, state.base_url());
+            let keyboard = card_actions_keyboard(number);
             bot.send_message(msg.chat.id, response)
                 .parse_mode(teloxide::types::ParseMode::Html)
+                .reply_markup(keyboard)
                 .await?;
         }
         Err(e) => {

@@ -1,5 +1,6 @@
 pub mod board;
 pub mod boards;
+pub mod callbacks;
 pub mod card;
 pub mod close;
 pub mod comment;

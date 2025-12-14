@@ -53,10 +53,17 @@ async fn main() -> anyhow::Result<()> {
     let bot = create_bot(&config);
     tracing::info!("Bot initialized");
 
-    // Build handler
-    let handler = Update::filter_message()
+    // Build handler with both commands and callbacks
+    let command_handler = Update::filter_message()
         .filter_command::<Command>()
         .endpoint(handle_command);
+
+    let callback_handler = Update::filter_callback_query()
+        .endpoint(handlers::callbacks::handle_callback);
+
+    let handler = dptree::entry()
+        .branch(command_handler)
+        .branch(callback_handler);
 
     // Start bot
     tracing::info!("Bot is running! Press Ctrl+C to stop.");

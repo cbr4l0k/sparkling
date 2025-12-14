@@ -399,7 +399,7 @@ impl CardRepository for SqliteCardRepository {
         // 1. Insert closure record
         sqlx::query(
             r#"
-            INSERT INTO closures (id, account_id, card_id, closer_id, created_at, updated_at)
+            INSERT INTO closures (id, account_id, card_id, user_id, created_at, updated_at)
             VALUES (?, ?, ?, ?, datetime('now'), datetime('now'))
             "#,
         )

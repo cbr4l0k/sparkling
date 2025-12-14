@@ -18,7 +18,7 @@ really wanna learn how to do something specific.
 
 - [x] View cards, boards, details
 - [x] Add comments, close/reopen cards
-- [ ] Create cards, move columns, assign/tag
+- [x] Create cards, move columns, assign/tag
 - [ ] Search functionality
 - [x] Fix CardStatus showing always "published"
 

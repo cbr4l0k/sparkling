@@ -3,7 +3,8 @@ use teloxide::prelude::*;
 
 use crate::application::use_cases::{
     AddCommentUseCase, CloseCardUseCase, CreateCardUseCase, GetCardDetailsUseCase,
-    ListBoardCardsUseCase, ListBoardsUseCase, ListMyCardsUseCase, ReopenCardUseCase,
+    ListBoardCardsUseCase, ListBoardsUseCase, ListMyCardsUseCase, MoveCardUseCase,
+    ReopenCardUseCase,
 };
 use crate::domain::ports::{BoardRepository, CardRepository, CommentRepository, EventRepository};
 use crate::domain::value_objects::FizzyId;
@@ -23,6 +24,10 @@ pub struct BotState {
     pub close_card: Arc<CloseCardUseCase>,
     pub reopen_card: Arc<ReopenCardUseCase>,
     pub add_comment: Arc<AddCommentUseCase>,
+    // Use cases for Phase 4 (Interactive UX)
+    pub move_card: Arc<MoveCardUseCase>,
+    // Repository for Phase 4 callbacks (to fetch columns)
+    pub board_repository: Arc<dyn BoardRepository>,
 }
 
 impl BotState {
@@ -59,9 +64,16 @@ impl BotState {
             )),
             add_comment: Arc::new(AddCommentUseCase::new(
                 comment_repository,
+                card_repository.clone(),
+                event_repository.clone(),
+            )),
+            // Phase 4 use cases
+            move_card: Arc::new(MoveCardUseCase::new(
                 card_repository,
+                board_repository.clone(),
                 event_repository,
             )),
+            board_repository,
         }
     }
 
@@ -129,6 +141,43 @@ pub enum Command {
     #[command(description = "Reopen a closed card")]
     Reopen { number: i64 },
 
-    #[command(description = "Add a comment to a card", parse_with = "split")]
+    #[command(description = "Add a comment to a card", parse_with = parse_comment_args)]
     Comment { number: i64, text: String },
+}
+
+/// Custom parser for /comment command: takes number and rest of text
+fn parse_comment_args(input: String) -> Result<(i64, String), teloxide::utils::command::ParseError> {
+    let mut parts = input.splitn(2, ' ');
+
+    let number_str = parts.next().ok_or_else(|| {
+        teloxide::utils::command::ParseError::TooFewArguments {
+            expected: 2,
+            found: 0,
+            message: "Usage: /comment <number> <text>".to_string(),
+        }
+    })?;
+
+    let number: i64 = number_str.parse().map_err(|_| {
+        teloxide::utils::command::ParseError::IncorrectFormat(
+            "Card number must be a valid integer".into(),
+        )
+    })?;
+
+    let text = parts.next().ok_or_else(|| {
+        teloxide::utils::command::ParseError::TooFewArguments {
+            expected: 2,
+            found: 1,
+            message: "Usage: /comment <number> <text>".to_string(),
+        }
+    })?;
+
+    if text.is_empty() {
+        return Err(teloxide::utils::command::ParseError::TooFewArguments {
+            expected: 2,
+            found: 1,
+            message: "Comment text cannot be empty".to_string(),
+        });
+    }
+
+    Ok((number, text.to_string()))
 }
