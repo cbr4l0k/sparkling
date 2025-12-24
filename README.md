@@ -14,6 +14,16 @@ something that let you do whatever you want with it. It's mainly Claude Code
 generated; but, once in a while I do the changes if I have the time or if I
 really wanna learn how to do something specific.
 
+## REMBER
+
+When trying to modifying the `db` do 
+
+```bash
+chmod 755 storage/
+sudo chmod 644 development.sqlite3
+sudo chown $USER:$USER development*
+```
+
 ## Roadmap
 
 - [x] View cards, boards, details
@@ -29,28 +39,32 @@ I added a really insecure logger in the `app/controllers/concerns/authentication
 The following is the `docker-compose.yml` I wrote to run the migrations and similar stuff to be able to have a reliable service on startup.
 
 ```yaml
-name: fizzy
+name: fizzy-dev
 
 services:
-  fizzy:
-    build: ./
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
     restart: always
-    environment:
-      - SECRET_KEY_BASE=$SECRET_KEY_BASE
     ports:
-      - "3000:3000"
       - "3006:3006"
     volumes:
+      - .:/rails
+      - bundle_cache:/usr/local/bundle
         - "$PATH_TO_THE_STORAGE_FOLDER/storage:/rails/storage"
-    entrypoint: []
+    environment:
+      - RAILS_ENV=development
+      - SOLID_QUEUE_IN_PUMA=false
     command: >
       bash -c "
-        ./bin/rails db:prepare &&
-        ./bin/rails db:migrate:cache &&
-        ./bin/rails db:migrate:cable &&
-        ./bin/rails db:migrate:queue &&
-        exec ./bin/thrust ./bin/rails server
+        bundle install &&
+        bin/rails db:prepare &&
+        bin/rails db:seed &&
+        bin/rails server -p 3006 -b 0.0.0.0
       "
+volumes:
+  bundle_cache:
 ```
 
 The `PATH_TO_THE_STORAGE_FOLDER` is just a placeholder I setted up so that I could debug and understand how the database was configured. 
