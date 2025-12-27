@@ -1,4 +1,5 @@
-# Sparkling 
+<img src="./assets/logo.png" style="width:700px" alt="Sparkling">
+
 
 ## A bot for fizzy management
 
