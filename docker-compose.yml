@@ -1,0 +1,13 @@
+services:
+  sparkling:
+    build: .
+    container_name: sparkling
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      # Update this path to your Fizzy storage directory
+      - /home/cbr4l0k/Documents/projects/fizzy_storage/storage:/data/fizzy:rw
+    environment:
+      # Override DATABASE_PATH to use the mounted volume
+      - DATABASE_PATH=/data/fizzy/production.sqlite3
