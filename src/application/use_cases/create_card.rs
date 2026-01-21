@@ -48,29 +48,14 @@ impl CreateCardUseCase {
             ));
         }
 
-        // Get the first column of the board to place the card directly on the board
-        let columns = self
-            .board_repository
-            .get_columns(&input.account_id, &input.board_id)
-            .await
-            .map_err(ApplicationError::DomainError)?;
-
-        let first_column_id = columns.first().map(|c| c.id.clone());
-
-        // If there's a column, create as published (visible on board), otherwise drafted
-        let (status, column_id) = if first_column_id.is_some() {
-            (CardStatus::Published, first_column_id)
-        } else {
-            (CardStatus::Drafted, None)
-        };
-
+        // Create card without column assignment (Fizzy's "Maybe?" / awaiting triage state)
         let create_input = CreateCardInput {
             board_id: input.board_id.clone(),
             creator_id: input.user_id.clone(),
             title: input.title,
             description: input.description,
-            status,
-            column_id,
+            status: CardStatus::Published,
+            column_id: None,
         };
 
         let card = self
