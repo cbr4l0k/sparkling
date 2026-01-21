@@ -1,7 +1,7 @@
 [package]
 name = "sparkling"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 authors = ["cbr4l0k"]
 description = "Sparkling is a telegram bot for Fizzy project management"
 

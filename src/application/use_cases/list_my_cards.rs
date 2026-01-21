@@ -1,7 +1,7 @@
 use crate::application::errors::ApplicationError;
 use crate::domain::entities::Card;
 use crate::domain::ports::{CardFilters, CardRepository};
-use crate::domain::value_objects::{CardStatus, FizzyId};
+use crate::domain::value_objects::FizzyId;
 use std::sync::Arc;
 
 pub struct ListMyCardsUseCase {
